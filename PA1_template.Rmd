@@ -8,18 +8,125 @@ output:
 
 ## Loading and preprocessing the data
 
+```{r, echo=TRUE}
+activity = read.csv("activity.csv", na.strings = "NA")
+activity$date = as.Date(activity$date)
+```
 
 
 ## What is mean total number of steps taken per day?
+##  1. Calculate the total number of steps taken each day
 
+```{r, echo=TRUE}
+library(dplyr)
+by_date = activity %>%
+    group_by(date) %>%
+    summarise(steps = sum(steps, na.rm = TRUE))
 
+by_date
+```
+
+##  2. Plot showing steps taken per day
+
+```{r, echo=TRUE}
+bp = barplot(by_date$steps, xlab = "Dates", ylab = "Steps taken", main = "Steps taken per day")
+axis(at = bp, side = 1, las = 2, labels = by_date$date, cex.axis = 0.53)
+```
+
+##  3. Calculate and report the mean and median of the total number of steps taken per day
+
+```{r, echo=TRUE}
+mean(by_date$steps)
+median(by_date$steps)
+```
 
 ## What is the average daily activity pattern?
 
+##  1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
+```{r, echo=TRUE}
+library(ggplot2)
+activity$interval = as.factor(activity$interval)
+ggplot(activity, aes(interval, steps, group = 1)) + 
+    stat_summary(aes(y = steps, group = 1), fun.y = mean, geom = "line", group = 1)
+```
+
+##  2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r, echo=TRUE}
+meansteps = activity %>%
+    group_by(interval) %>%
+    summarise(means = mean(steps, na.rm = TRUE))
+
+meansteps[which.max(meansteps$means),]
+```
 
 ## Imputing missing values
 
+##  1. Calculate and report the total number of missing values in the dataset 
 
+```{r, echo=TRUE}
+sum(is.na(activity$steps))
+```
+
+##  2. Filling in all of the missing values in the dataset. 
+##  3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+## Below, I create a copy of the original dataset called "dt2" and fill in the missing values of steps with the mean value of steps of that interval.
+
+```{r, echo=TRUE}
+dt2 = data.frame()
+for (i in 1:dim(activity[1])){
+    if (is.na(activity$steps[i])){
+        dt2 = rbind(dt2, activity[i,])
+        temp = match(activity$interval[i], meansteps$interval)
+        dt2$steps[i] <- meansteps$means[temp]
+    } else {
+        dt2 = rbind(dt2, activity[i,])
+    }
+}
+```
+
+##  4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+```{r, echo=TRUE}
+by_date2 = dt2 %>%
+    group_by(date) %>%
+    summarise(steps = sum(steps, na.rm = TRUE))
+
+by_date2
+
+bp2 = barplot(by_date2$steps, xlab = "Dates", ylab = "Steps taken", main = "Imputed Data - Steps taken per day")
+axis(at = bp, side = 1, las = 2, labels = by_date2$date, cex.axis = 0.53)
+
+mean(by_date2$steps)
+median(by_date2$steps)
+```
+
+##  The mean value in the second dataset has a higher mean (10766.19) compared to the first dataset (9354.23). In fact, even the median of the second data set is (10766.19) which is higher than the first set's median (10395). 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+##  1. Create a new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day
+
+```{r, echo=TRUE}
+
+for (j in 1:dim(dt2[1])){
+    if (weekdays(dt2$date[j]) == "Saturday"
+        | weekdays(dt2$date[j]) == "Sunday") {
+        dt2$wkd[j] = "Weekend"
+    } else{
+        dt2$wkd[j] = "Weekday"
+    }
+}
+
+dt2$wkd = as.factor(dt2$wkd)
+```
+
+##  2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+```{r, echo=TRUE}
+ggplot(dt2, aes(interval, steps, group = 1)) + 
+    stat_summary(aes(y = steps, group = 1), fun.y = mean, geom = "line", group = 1) +
+    facet_grid(wkd ~ .)
+```
